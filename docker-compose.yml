@@ -1,0 +1,20 @@
+
+services:
+  aesthetiai:
+    build:
+      context: .
+      args:
+        - API_KEY=${API_KEY}
+    image: aesthetiai:latest
+    container_name: aesthetiai-app
+    ports:
+      - "80:80"
+    environment:
+      - API_KEY=${API_KEY}
+    restart: always
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
