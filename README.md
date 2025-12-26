@@ -14,7 +14,7 @@
 
 1. **克隆项目并进入目录**
    ```bash
-   git clone <project-repo-url>
+   git clone https://github.com/Jasonzhu12397/AesthetiAI.git
    cd aesthetiai-rag
    ```
 
