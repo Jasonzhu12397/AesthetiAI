@@ -1,5 +1,4 @@
 services:
-  # AesthetiAI 前端与业务逻辑容器
   aesthetiai:
     build:
       context: .
@@ -11,7 +10,6 @@ services:
       - "80:80"
     environment:
       - API_KEY=${API_KEY}
-    # 允许容器访问宿主机上的服务（如宿主机自行运行的进程）
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: always
