@@ -1,0 +1,8 @@
+{
+  "name": "AesthetiRetriever: RAG Full-Stack Masterclass",
+  "description": "A comprehensive full-stack platform for learning and practicing Retrieval-Augmented Generation (RAG) technology, themed around Medical Aesthetic AI. Designed for developers to master indexing, retrieval, and evaluation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
