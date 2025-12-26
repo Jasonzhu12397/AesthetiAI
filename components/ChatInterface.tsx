@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Database, ShieldCheck, Search, Quote, Info, HeartPulse } from 'lucide-react';
-import { processRAGQuery } from '../services/geminiService';
+import { Send, Sparkles, Database, ShieldCheck, HeartPulse, Settings2, X, ChevronDown, Check } from 'lucide-react';
+import { processRAGQuery, LLMConfig } from '../services/geminiService';
 import { Message } from '../types';
 
 interface ChatInterfaceProps {
@@ -12,7 +12,24 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isAdmin = false })
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // 从本地存储加载配置
+  const [llmConfig, setLlmConfig] = useState<LLMConfig>(() => {
+    const saved = localStorage.getItem('llm_config');
+    if (saved) return JSON.parse(saved);
+    return {
+      baseUrl: "https://api.deepseek.com/v1",
+      apiKey: "",
+      model: "deepseek-chat"
+    };
+  });
+
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem('llm_config', JSON.stringify(llmConfig));
+  }, [llmConfig]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -29,7 +46,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isAdmin = false })
     setIsLoading(true);
 
     try {
-      const result = await processRAGQuery(input);
+      const result = await processRAGQuery(input, llmConfig);
       const assistantMsg: Message = {
         role: 'assistant',
         content: result.text,
@@ -40,7 +57,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isAdmin = false })
     } catch (error) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '系统繁忙，请稍后再试。',
+        content: '系统连接失败，请检查设置。',
         timestamp: Date.now()
       }]);
     } finally {
@@ -52,6 +69,64 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isAdmin = false })
     <div className={`flex flex-col h-[650px] transition-all duration-500 rounded-[2.5rem] overflow-hidden shadow-2xl relative border ${
       isAdmin ? 'bg-slate-900 border-cyan-500/20' : 'glass border-white/5 shadow-rose-500/5'
     }`}>
+      
+      {/* Settings Overlay */}
+      {showSettings && (
+        <div className="absolute inset-0 z-50 glass backdrop-blur-2xl p-8 animate-in fade-in zoom-in duration-300">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-xl font-black text-white flex items-center gap-2">
+              <Settings2 size={20} className="text-rose-400" /> 模型配置
+            </h3>
+            <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-white/10 rounded-full text-slate-400">
+              <X size={24} />
+            </button>
+          </div>
+          
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">API Endpoint</label>
+              <input 
+                type="text" 
+                value={llmConfig.baseUrl}
+                onChange={e => setLlmConfig({...llmConfig, baseUrl: e.target.value})}
+                placeholder="https://api.deepseek.com/v1"
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-cyan-100 outline-none focus:border-rose-500/50"
+              />
+              <p className="text-[10px] text-slate-600">本地部署通常为 http://localhost:11434/v1 (Ollama)</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">API Key</label>
+              <input 
+                type="password" 
+                value={llmConfig.apiKey}
+                onChange={e => setLlmConfig({...llmConfig, apiKey: e.target.value})}
+                placeholder="sk-..."
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-cyan-100 outline-none focus:border-rose-500/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Model ID</label>
+              <input 
+                type="text" 
+                value={llmConfig.model}
+                onChange={e => setLlmConfig({...llmConfig, model: e.target.value})}
+                placeholder="deepseek-chat or llama3"
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-cyan-100 outline-none focus:border-rose-500/50"
+              />
+            </div>
+
+            <button 
+              onClick={() => setShowSettings(false)}
+              className="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 mt-4 shadow-lg shadow-rose-900/20 transition-all"
+            >
+              <Check size={18} /> 保存并应用配置
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className={`p-6 border-b border-white/5 flex items-center justify-between ${isAdmin ? 'bg-black/40' : 'bg-white/5'}`}>
         <div className="flex items-center gap-4">
@@ -62,14 +137,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isAdmin = false })
           </div>
           <div>
             <h3 className="text-base font-black text-white tracking-tight">
-              {isAdmin ? "RAG 系统底层调试" : "私人咨询助理"}
+              {isAdmin ? "底层 RAG 调试模式" : "私人咨询助理"}
             </h3>
             <p className="text-[10px] text-slate-500 flex items-center gap-1.5 font-bold uppercase tracking-widest mt-0.5">
               <span className={`w-1.5 h-1.5 rounded-full ${isAdmin ? 'bg-emerald-500' : 'bg-rose-400'} animate-pulse`}></span>
-              {isAdmin ? "DeepSeek V3 Backend Active" : "专业咨询通道已加密"}
+              {llmConfig.model} 在线中
             </p>
           </div>
         </div>
+        <button 
+          onClick={() => setShowSettings(true)}
+          className="p-3 hover:bg-white/5 rounded-2xl text-slate-500 hover:text-white transition-all"
+          title="模型配置"
+        >
+          <Settings2 size={20} />
+        </button>
       </div>
 
       {/* Messages */}
@@ -80,11 +162,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isAdmin = false })
                <Sparkles size={40} className={isAdmin ? 'text-cyan-600' : 'text-rose-300'} />
             </div>
             <h4 className="text-xl font-bold text-white mb-3">
-              {isAdmin ? "请输入调试 Query" : "您好，有什么可以帮您？"}
+              {isAdmin ? "进入调试环境" : "您好，有什么可以帮您？"}
             </h4>
             <p className="text-sm text-slate-500 leading-relaxed max-w-[320px]">
               {isAdmin 
-                ? "输入关键词测试本地/远程 LLM 的 RAG 检索命中率。" 
+                ? "支持多模型接入，点击右上角齿轮可切换本地/云端 LLM。" 
                 : "基于您的个性化需求，我将为您提供最专业的医美项目解读与建议。"}
             </p>
           </div>
@@ -99,26 +181,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isAdmin = false })
             } px-6 py-4`}>
               <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
               
-              {/* 仅管理员可见：技术性 RAG 溯源 */}
               {isAdmin && msg.retrievedContext && msg.role === 'assistant' && (
                 <div className="mt-5 pt-4 border-t border-white/5 space-y-3">
                   <div className="flex items-center gap-2 text-[10px] font-black text-cyan-400 uppercase tracking-widest">
-                    <Database size={12} /> Vector Store Hits
+                    <Database size={12} /> 知识库命中片段
                   </div>
                   {msg.retrievedContext.map((ctx, i) => (
                     <div key={i} className="text-[11px] bg-black/40 p-3 rounded-xl text-slate-400 font-mono border border-white/5">
-                      <Quote size={10} className="mb-1 opacity-30 text-cyan-400" />
                       {ctx}
                     </div>
                   ))}
-                </div>
-              )}
-
-              {/* 用户可见：柔性合规提示 */}
-              {!isAdmin && msg.role === 'assistant' && (
-                <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-500 font-bold tracking-tight">
-                  <ShieldCheck size={12} className="text-emerald-500/40" />
-                  内容基于官方备案医学库生成
                 </div>
               )}
             </div>
@@ -143,7 +215,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isAdmin = false })
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={isAdmin ? "测试 RAG 检索命中..." : "询问关于项目、恢复期或效果的问题..."}
+            placeholder={isAdmin ? "发送 Query 测试检索效率..." : "咨询关于项目、恢复期或效果的问题..."}
             className="w-full bg-slate-950/50 border border-white/10 rounded-2xl px-6 py-4 pr-16 text-sm focus:outline-none focus:border-rose-500/30 transition-all placeholder:text-slate-600 font-medium"
           />
           <button

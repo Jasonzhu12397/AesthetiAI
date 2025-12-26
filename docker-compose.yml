@@ -1,5 +1,5 @@
-
 services:
+  # AesthetiAI 前端与业务逻辑容器
   aesthetiai:
     build:
       context: .
@@ -11,6 +11,23 @@ services:
       - "80:80"
     environment:
       - API_KEY=${API_KEY}
+    # 允许容器访问宿主机上的服务（如宿主机自行运行的进程）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    depends_on:
+      - ollama
+    networks:
+      - app-network
+
+  # 本地 LLM 引擎容器 (支持 Llama, Qwen, DeepSeek 等)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-local
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
     restart: always
     networks:
       - app-network
@@ -18,3 +35,6 @@ services:
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  ollama_data:

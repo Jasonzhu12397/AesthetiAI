@@ -1,13 +1,22 @@
 
 import { MEDICAL_AESTHETIC_KNOWLEDGE, BRAND_CONFIG } from "../constants";
 
-// 配置 API 终端
-// DeepSeek 官方: https://api.deepseek.com/v1
-// Ollama 本地: http://localhost:11434/v1
-const BASE_URL = "https://api.deepseek.com/v1";
-const API_KEY = process.env.API_KEY;
+export interface LLMConfig {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
 
-export async function processRAGQuery(query: string) {
+// 默认配置（如果用户未自定义）
+const DEFAULT_CONFIG: LLMConfig = {
+  baseUrl: "https://api.deepseek.com/v1",
+  apiKey: process.env.API_KEY || "",
+  model: "deepseek-chat"
+};
+
+export async function processRAGQuery(query: string, customConfig?: Partial<LLMConfig>) {
+  const config = { ...DEFAULT_CONFIG, ...customConfig };
+  
   // --- 模拟后端 RAG 检索逻辑 ---
   const words = query.toLowerCase().split(/[^\w\u4e00-\u9fa5]/).filter(w => w.length > 1);
   const retrieved = MEDICAL_AESTHETIC_KNOWLEDGE.filter(k => 
@@ -24,8 +33,8 @@ export async function processRAGQuery(query: string) {
     规则：
     1. 语气专业、温和、客观。
     2. 严禁捏造医学事实。
-    3. 必须提及项目品牌名（如果知识库中有）。
-    4. 结尾需包含温馨的术后建议或注意事项。
+    3. 必须提及项目品牌名。
+    4. 结尾需包含温馨的术后建议。
   `;
 
   const prompt = `
@@ -36,14 +45,14 @@ export async function processRAGQuery(query: string) {
   `;
 
   try {
-    const response = await fetch(`${BASE_URL}/chat/completions`, {
+    const response = await fetch(`${config.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`
+        'Authorization': `Bearer ${config.apiKey}`
       },
       body: JSON.stringify({
-        model: "deepseek-chat", // 可切换为 deepseek-reasoner 或 ollama 中的模型名
+        model: config.model,
         messages: [
           { role: "system", content: systemInstruction },
           { role: "user", content: prompt }
@@ -54,7 +63,8 @@ export async function processRAGQuery(query: string) {
     });
 
     if (!response.ok) {
-      throw new Error(`API 请求失败: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`API 请求失败 (${response.status}): ${JSON.stringify(errorData)}`);
     }
 
     const data = await response.json();
@@ -64,10 +74,10 @@ export async function processRAGQuery(query: string) {
       text: text || "抱歉，我暂时无法处理您的咨询。",
       context: context
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Service Error:", error);
     return {
-      text: "非常抱歉，咨询系统目前正在维护，请稍后再试或联系人工客服。",
+      text: `服务异常: ${error.message || "未知错误"}。请检查设置中的 Endpoint 和 API Key 是否正确。`,
       context: []
     };
   }
